@@ -1,0 +1,28 @@
+:root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+body { margin: 0; background: #0b1220; color: #e7eefc; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
+header { margin-bottom: 18px; }
+h1 { margin: 0 0 6px; font-size: 22px; }
+.muted { color: #a6b3cf; font-size: 13px; }
+.card { background: #121b2f; border: 1px solid #1f2b47; border-radius: 14px; padding: 14px; margin: 12px 0; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+button {
+  border: 0; border-radius: 10px; padding: 10px 12px;
+  background: #2a66f5; color: white; cursor: pointer;
+}
+button.secondary { background: #26324d; }
+button:active { transform: translateY(1px); }
+.badge {
+  padding: 5px 10px; border-radius: 999px;
+  background: #26324d; border: 1px solid #334266;
+  font-size: 12px;
+}
+.out {
+  margin: 12px 0 0;
+  background: #0b1220; border: 1px solid #1f2b47; border-radius: 10px;
+  padding: 12px;
+  overflow: auto;
+  min-height: 60px;
+}
+code { background: #0b1220; padding: 2px 6px; border-radius: 8px; border: 1px solid #1f2b47; }
+footer { margin-top: 18px; }

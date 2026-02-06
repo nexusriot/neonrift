@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ESP32 Async REST UI</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ESP32 Async REST UI</h1>
+      <p class="muted">Calls <code>/health</code> and <code>/info</code> and shows JSON.</p>
+    </header>
+
+    <section class="card">
+      <div class="row">
+        <button id="btnHealth">Check health</button>
+        <span id="healthBadge" class="badge">unknown</span>
+      </div>
+      <pre id="healthOut" class="out"></pre>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <button id="btnInfo">Load info</button>
+        <button id="btnAuto" class="secondary">Auto refresh: off</button>
+        <span class="muted" id="autoNote"></span>
+      </div>
+      <pre id="infoOut" class="out"></pre>
+    </section>
+
+    <footer class="muted">
+      Tip: open <code>http://&lt;esp-ip&gt;/</code> or <code>http://neonrift.local/</code> (if mDNS works).
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
