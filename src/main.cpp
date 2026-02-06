@@ -6,12 +6,126 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 
-static const char* WIFI_SSID = "SSID_HERE";
-static const char* WIFI_PASS = "PASSWORD_HERE";
 static const char* MDNS_NAME = "neonrift";  // http://neonrift.local
+
+
+struct WiFiCred {
+  const char* ssid;
+  const char* pass;
+};
+
+static const WiFiCred WIFI_CREDS[] = {
+  {"SSID1_HERE", "PASSWORD1_HERE"},
+  {"SSID2_HERE", "PASSWORD2_HERE"},
+  {"SSID3_HERE", "PASSWORD3_HERE"},
+};
+
+static const size_t WIFI_CREDS_COUNT = sizeof(WIFI_CREDS) / sizeof(WIFI_CREDS[0]);
+
 
 AsyncWebServer server(80);
 
+
+static int findCredIndex(const String& ssid) {
+  for (size_t i = 0; i < WIFI_CREDS_COUNT; i++) {
+    if (ssid == WIFI_CREDS[i].ssid) return (int)i;
+  }
+  return -1;
+}
+
+struct Candidate {
+  int credIndex;
+  int rssi;
+  String ssid;
+};
+
+static bool connectWithTimeout(const char* ssid, const char* pass, uint32_t timeoutMs) {
+  WiFi.disconnect(true, true);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, pass);
+
+  Serial.printf("Connecting to '%s' ", ssid);
+  uint32_t start = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
+    delay(250);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("WiFi connected. SSID='%s' IP=%s RSSI=%d\n",
+                  WiFi.SSID().c_str(),
+                  WiFi.localIP().toString().c_str(),
+                  WiFi.RSSI());
+    return true;
+  }
+
+  Serial.printf("Failed to connect to '%s' (status=%d)\n", ssid, (int)WiFi.status());
+  return false;
+}
+
+static bool connectFirstAvailableKnown(uint32_t connectTimeoutMsPerTry = 15000) {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false, true);
+  delay(50);
+
+  Serial.println("Scanning WiFi...");
+  int n = WiFi.scanNetworks(/*async=*/false, /*hidden=*/true);
+
+  if (n < 0) {
+    Serial.printf("Scan failed: %d\n", n);
+    return false;
+  }
+
+  Serial.printf("Scan done: %d networks\n", n);
+
+
+  Candidate cand[16];
+  int m = 0;
+
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    int idx = findCredIndex(ssid);
+    if (idx >= 0) {
+      int rssi = WiFi.RSSI(i);
+      Serial.printf("  known: '%s' rssi=%d\n", ssid.c_str(), rssi);
+      if (m < (int)(sizeof(cand) / sizeof(cand[0]))) {
+        cand[m++] = Candidate{idx, rssi, ssid};
+      }
+    }
+  }
+
+  if (m == 0) {
+    Serial.println("No known networks found.");
+    return false;
+  }
+
+  // Sort candidates by RSSI desc
+  for (int i = 0; i < m - 1; i++) {
+    int best = i;
+    for (int j = i + 1; j < m; j++) {
+      if (cand[j].rssi > cand[best].rssi) best = j;
+    }
+    if (best != i) {
+      Candidate tmp = cand[i];
+      cand[i] = cand[best];
+      cand[best] = tmp;
+    }
+  }
+
+
+  for (int i = 0; i < m; i++) {
+    const WiFiCred& c = WIFI_CREDS[cand[i].credIndex];
+    Serial.printf("Trying: '%s' (rssi=%d)\n", cand[i].ssid.c_str(), cand[i].rssi);
+    if (connectWithTimeout(c.ssid, c.pass, connectTimeoutMsPerTry)) {
+      return true;
+    }
+  }
+
+  Serial.println("Tried all known networks, none connected.");
+  return false;
+}
 
 static uint64_t getChipId64() {
 #if defined(ESP_ARDUINO_VERSION_MAJOR)
@@ -100,22 +214,10 @@ static void handleNotFound(AsyncWebServerRequest* request) {
 
 
 static void setupWifi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+    bool ok = connectFirstAvailableKnown(/*connectTimeoutMsPerTry=*/15000);
 
-  Serial.print("Connecting to WiFi");
-  uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
-    delay(250);
-    Serial.print(".");
-  }
-  Serial.println();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("WiFi connected. IP: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WiFi NOT connected (timeout).");
+  if (!ok) {
+    Serial.println("WiFi NOT connected (no known networks or all failed).");
   }
 }
 
