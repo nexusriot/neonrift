@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>NeonRift Wi-Fi</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { margin:0; background:#f6f7fb; }
+    .wrap { max-width:720px; margin:0 auto; padding:18px; }
+    .card { background:#fff; border:1px solid #e6e8ef; border-radius:12px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.04); margin-bottom:12px; }
+    h1 { font-size:18px; margin:0 0 10px; }
+    h2 { font-size:14px; margin:0 0 10px; color:#333; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button { border:0; border-radius:10px; padding:10px 12px; cursor:pointer; font-weight:600; }
+    .b { background:#2563eb; color:#fff; }
+    .g { background:#16a34a; color:#fff; }
+    .r { background:#dc2626; color:#fff; }
+    .muted { color:#666; font-size:13px; }
+    input, select, textarea {
+      width:100%; padding:10px; border-radius:10px; border:1px solid #d6dae6; box-sizing:border-box;
+    }
+    ul { margin:0; padding-left:18px; }
+    li { padding:4px 0; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#eef2ff; color:#3730a3; }
+    .ok { background:#dcfce7; color:#166534; }
+    .bad { background:#fee2e2; color:#991b1b; }
+    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background:#111827; color:#fff; padding:10px 14px; border-radius:10px;
+      opacity:0; pointer-events:none; transition:opacity .2s ease, bottom .2s ease;
+    }
+    .toast.show { opacity:1; bottom:28px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 640px){ .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>NeonRift Wi-Fi Manager</h1>
+      <div class="row">
+        <div>Connection: <span id="connPill" class="pill">...</span></div>
+        <div class="muted">Current SSID: <strong id="curSsid">—</strong></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="b" id="refreshBtn">Refresh</button>
+        <button class="g" id="reconnectBtn">Reconnect</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">Tip: If you delete the active network, press “Reconnect”.</div>
+    </div>
+
+    <div class="card">
+      <h2>Saved Networks</h2>
+      <div id="list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Add / Update Network</h2>
+      <div class="grid">
+        <div>
+          <label class="muted">SSID</label>
+          <input id="ssid" autocomplete="off" placeholder="MyWiFi" />
+        </div>
+        <div>
+          <label class="muted">Password</label>
+          <input id="pass" type="password" autocomplete="off" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="g" id="addBtn">Save</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">
+        If SSID already exists, password will be updated.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Delete Network</h2>
+      <label class="muted">Select slot</label>
+      <select id="delSelect"></select>
+      <div class="row" style="margin-top:10px;">
+        <button class="r" id="delBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+const toast = document.getElementById("toast");
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(()=>toast.classList.remove("show"), 2200);
+}
+
+const connPill = document.getElementById("connPill");
+const curSsid = document.getElementById("curSsid");
+const list = document.getElementById("list");
+const delSelect = document.getElementById("delSelect");
+
+async function apiJson(url, opts){
+  const r = await fetch(url, opts);
+  const t = await r.text();
+  let j = {};
+  try { j = JSON.parse(t); } catch(_){}
+  if(!r.ok){
+    const err = (j && j.error) ? j.error : ("HTTP " + r.status);
+    throw new Error(err);
+  }
+  return j;
+}
+
+function renderNetworks(j){
+  connPill.textContent = j.connected ? "CONNECTED" : "DISCONNECTED";
+  connPill.className = "pill " + (j.connected ? "ok" : "bad");
+  curSsid.textContent = j.current_ssid || "—";
+
+  const nets = j.networks || [];
+  const ul = document.createElement("ul");
+  delSelect.innerHTML = "";
+
+  nets.forEach(n => {
+    const li = document.createElement("li");
+    const name = n.filled ? n.ssid : "(empty)";
+    li.innerHTML = `Slot <strong>${n.slot}</strong>: ${name} ` +
+      (n.active ? `<span class="pill ok">active</span>` : "");
+    ul.appendChild(li);
+
+    // delete dropdown: only filled
+    if(n.filled){
+      const opt = document.createElement("option");
+      opt.value = String(n.slot);
+      opt.textContent = `#${n.slot}: ${n.ssid}` + (n.active ? " (active)" : "");
+      delSelect.appendChild(opt);
+    }
+  });
+
+  if(!ul.children.length){
+    list.textContent = "No slots?";
+  } else {
+    list.innerHTML = "";
+    list.appendChild(ul);
+  }
+
+  if(!delSelect.options.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "(no saved networks)";
+    delSelect.appendChild(opt);
+  }
+}
+
+async function refresh(){
+  const j = await apiJson("/networks");
+  renderNetworks(j);
+}
+
+document.getElementById("refreshBtn").onclick = async ()=>{
+  try { await refresh(); showToast("Refreshed"); } catch(e){ showToast("Error: " + e.message); }
+};
+
+document.getElementById("reconnectBtn").onclick = async ()=>{
+  try {
+    await apiJson("/wifi/reconnect", { method:"POST" });
+    await refresh();
+    showToast("Reconnect done");
+  } catch(e){
+    await refresh();
+    showToast("Reconnect failed: " + e.message);
+  }
+};
+
+document.getElementById("addBtn").onclick = async ()=>{
+  const ssid = document.getElementById("ssid").value.trim();
+  const pass = document.getElementById("pass").value; // do not trim
+  if(!ssid){ showToast("SSID is required"); return; }
+
+  try{
+    await apiJson("/networks/add", {
+      method:"POST",
+      headers: { "Content-Type":"text/plain" },
+      body: ssid + "\n" + pass
+    });
+    document.getElementById("ssid").value = "";
+    document.getElementById("pass").value = "";
+    await refresh();
+    showToast("Saved");
+  }catch(e){
+    showToast("Error: " + e.message);
+  }
+};
+
+document.getElementById("delBtn").onclick = async ()=>{
+  const slot = delSelect.value;
+  if(!slot){ showToast("Nothing to delete"); return; }
+  if(!confirm("Delete slot #" + slot + "?")) return;
+
+  try{
+    await apiJson("/networks/delete", {
+      method:"POST",
+      headers: { "Content-Type":"text/plain" },
+      body: slot
+    });
+    await refresh();
+    showToast("Deleted");
+  }catch(e){
+    showToast("Error: " + e.message);
+  }
+};
+
+refresh().catch(e => showToast("Error: " + e.message));
+</script>
+</body>
+</html>
