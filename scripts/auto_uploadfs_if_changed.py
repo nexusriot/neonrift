@@ -26,9 +26,9 @@ def after_upload(source, target, env):
         with open(STAMP, "r") as f:
             prev = f.read().strip()
 
-    if cur == prev:
-        print(">>> Auto: LittleFS unchanged, skipping uploadfs")
-        return
+#    if cur == prev:
+#        print(">>> Auto: LittleFS unchanged, skipping uploadfs")
+#        return
 
     print(">>> Auto: LittleFS changed, running uploadfs")
     env.Execute("pio run -e %s -t uploadfs" % env["PIOENV"])
