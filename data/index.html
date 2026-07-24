@@ -3,35 +3,81 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ESP32 Async REST UI</title>
+  <title>neonrift</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Neonrift ESP32 UI</h1>
-      <p class="muted">Calls <code>/health</code> and <code>/info</code> and shows JSON.</p>
+      <h1>neonrift <span id="liveDot" class="dot" title="live link"></span></h1>
+      <p class="muted">ESP32 control panel — live telemetry, Wi-Fi setup, OTA.</p>
+      <div class="row">
+        <input id="token" class="tokenIn" type="password" placeholder="API token (optional)" autocomplete="off" />
+        <button id="saveToken" class="secondary small">Save token</button>
+      </div>
     </header>
 
+    <!-- Live status -->
     <section class="card">
-      <div class="row">
-        <button id="btnHealth">Check health</button>
-        <span id="healthBadge" class="badge">unknown</span>
+      <div class="row spread">
+        <h2>Status</h2>
+        <span id="connBadge" class="badge">connecting…</span>
       </div>
-      <pre id="healthOut" class="out"></pre>
+      <div id="stats" class="grid"></div>
     </section>
 
+    <!-- LED control -->
     <section class="card">
-      <div class="row">
-        <button id="btnInfo">Load info</button>
-        <button id="btnAuto" class="secondary">Auto refresh: off</button>
-        <span class="muted" id="autoNote"></span>
+      <div class="row spread">
+        <h2>Onboard LED</h2>
+        <button id="ledBtn" class="secondary">LED: ?</button>
       </div>
-      <pre id="infoOut" class="out"></pre>
+    </section>
+
+    <!-- Wi-Fi -->
+    <section class="card">
+      <h2>Wi-Fi</h2>
+      <p class="muted">Saved networks (merged with strongest-first auto-connect on boot).</p>
+      <ul id="savedList" class="list"></ul>
+
+      <div class="row spread">
+        <h3>Nearby networks</h3>
+        <button id="scanBtn" class="secondary small">Scan</button>
+      </div>
+      <ul id="scanList" class="list"></ul>
+
+      <h3>Add / update network</h3>
+      <div class="row">
+        <input id="ssid" placeholder="SSID" />
+        <input id="pass" type="password" placeholder="password" />
+        <button id="addBtn">Save &amp; reboot</button>
+      </div>
+      <p id="wifiMsg" class="muted"></p>
+    </section>
+
+    <!-- OTA -->
+    <section class="card">
+      <h2>Firmware update (OTA)</h2>
+      <p class="muted">Upload <code>.pio/build/esp32dev/firmware.bin</code>. Device reboots when done.</p>
+      <div class="row">
+        <input id="fwFile" type="file" accept=".bin" />
+        <button id="otaBtn">Upload</button>
+      </div>
+      <div class="progress"><div id="otaBar" class="bar"></div></div>
+      <p id="otaMsg" class="muted"></p>
+    </section>
+
+    <!-- Raw -->
+    <section class="card">
+      <div class="row spread">
+        <h2>Raw /info</h2>
+        <button id="rawToggle" class="secondary small">show</button>
+      </div>
+      <pre id="rawOut" class="out hidden"></pre>
     </section>
 
     <footer class="muted">
-      Tip: open <code>http://&lt;esp-ip&gt;/</code> or <code>http://neonrift.local/</code> (if mDNS works).
+      <code id="hostNote"></code>
     </footer>
   </div>
 
